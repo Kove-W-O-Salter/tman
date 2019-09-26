@@ -1,0 +1,23 @@
+name: trash
+version: "1.0"
+author: Kove Salter <kove.w.o.salter@gmail.com>
+about: Safely delete and restore
+args:
+    - INPUT:
+        help: The input FILE or PATTERN
+        required: true
+    - restore:
+        short: r
+        long: restore
+        help: Restore an item
+        conflicts_with: [list]
+    - list:
+        short: l
+        long: list
+        help: List items in trash
+        conflicts_with: [restore]
+    - verbose:
+        short: v
+        long: verbose
+        help: Log tonnes of information
+        conflicts_with: []
