@@ -6,5 +6,5 @@ use std::io::Result;
 use trash::Trash;
 
 fn main() -> Result<()> {
-    return Trash::new().main();
+    return Trash::new()?.main();
 }

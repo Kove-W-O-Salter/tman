@@ -16,8 +16,3 @@ args:
         long: list
         help: List items in trash
         conflicts_with: [restore]
-    - verbose:
-        short: v
-        long: verbose
-        help: Log tonnes of information
-        conflicts_with: []
