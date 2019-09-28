@@ -59,14 +59,19 @@ impl Trash {
             .get_matches();
         
         match matches.subcommand() {
-            ("delete", Some(sub_matches)) => self.delete(sub_matches.value_of("FILE").unwrap())?,
-            ("restore", Some(sub_matches)) => self.restore(sub_matches.value_of("FILE").unwrap())?,
-            ("list", Some(sub_matches)) => {
+            ("delete", Some(sub_matches)) =>
+                for file in sub_matches.values_of("FILE").unwrap() {
+                    self.delete(file)?;
+                },
+            ("restore", Some(sub_matches)) =>
+                for file in sub_matches.values_of("FILE").unwrap() {
+                    self.restore(file)?;
+                },
+            ("list", Some(sub_matches)) =>
                 match Regex::new(sub_matches.value_of("PATTERN").unwrap_or("")) {
                     Ok(pattern) => self.list(pattern)?,
                     Err(_) => Trash::e_invalid_input()?
-                }
-            },
+                },
             ("empty", Some(_)) => self.empty()?,
             _ => Trash::e_invalid_input()?
         }

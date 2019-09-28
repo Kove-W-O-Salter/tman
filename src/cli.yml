@@ -9,6 +9,7 @@ subcommands:
         args:
             - FILE:
                 help: The target file
+                multiple: true
                 required: true
     - restore:
         about: Restore an item
@@ -16,6 +17,7 @@ subcommands:
         args:
             - FILE:
                 help: The target file
+                multiple: true
                 required: true
     - list:
         about: List items in trash
