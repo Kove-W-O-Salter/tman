@@ -26,6 +26,10 @@ subcommands:
             - PATTERN:
                 help: The OPTIONAL search pattern
                 required: false
+            - simple:
+                short: s
+                long: simple
+                help: List with no formatting
     - empty:
         about: Empty the trash
         help: Permanently delete all items in the trash

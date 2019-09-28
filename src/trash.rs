@@ -69,7 +69,8 @@ impl Trash {
                 },
             ("list", Some(sub_matches)) =>
                 match Regex::new(sub_matches.value_of("PATTERN").unwrap_or("")) {
-                    Ok(pattern) => self.list(pattern)?,
+                    Ok(pattern) =>
+                        self.list(pattern, sub_matches.is_present("simple"))?,
                     Err(_) => Trash::e_invalid_input()?
                 },
             ("empty", Some(_)) => self.empty()?,
@@ -122,13 +123,25 @@ impl Trash {
         Ok(())
     }
 
-    pub fn list(&self, pattern: Regex) -> Result<()> {
+    pub fn list(&self, pattern: Regex, simple: bool) -> Result<()> {
         if read_dir(self.data_directory.clone())?.count() > 0 {
+            if !simple {
+                if pattern.as_str() != "" {
+                    println!("Listings for '{}'...", pattern);
+                } else {
+                    println!("Listings in trash...");
+                }
+            }
+
             for item in read_dir(self.data_directory.clone())? {
                 match item?.file_name().into_string() {
                     Ok(item) => {
                         if pattern.is_match(item.as_str()) {
-                            println!("  • {}", item);
+                            if simple {
+                                println!("{}", item);
+                            } else {
+                                println!("  • {}", item);
+                            }
                         }
                     },
                     Err(_) => ()
