@@ -1,8 +1,21 @@
 extern crate dirs;
 extern crate regex;
 
-use std::io::{Result, Error, ErrorKind, Write};
-use std::fs::{rename, create_dir, read_dir, read_to_string, remove_file, File};
+use std::io::{
+    Result,
+    Error,
+    ErrorKind,
+    Write
+};
+use std::fs::{
+    rename,
+    create_dir,
+    read_dir,
+    read_to_string,
+    remove_file,
+    remove_dir_all,
+    File
+};
 use dirs::home_dir;
 use std::path::{PathBuf};
 use clap::{App};
@@ -48,6 +61,8 @@ impl Trash {
                 Ok(pattern) => self.list(pattern)?,
                 Err(_) => Trash::e_invalid_input()?
             };
+        } else if matches.is_present("empty") {
+            self.empty()?;
         } else {
             self.delete(matches.value_of("INPUT").unwrap())?;
         }
@@ -72,11 +87,11 @@ impl Trash {
             meta_file.sync_data()?;
 
             rename(target_location, data_destination)?;
-
-            return Ok(());
         } else {
-            return Trash::e_not_found();
+            Trash::e_not_found()?;
         }
+
+        Ok(())
     }
 
     pub fn restore(&self, name: &str) -> Result<()> {
@@ -99,17 +114,37 @@ impl Trash {
     }
 
     pub fn list(&self, pattern: Regex) -> Result<()> {
-        let dir_entries = read_dir(self.data_directory.clone())?;
-
-        for entry in dir_entries {
-            match entry?.file_name().into_string() {
-                Ok(entry) => {
-                    if pattern.is_match(entry.as_str()) {
-                        println!("  • {}", entry);
-                    }
-                },
-                Err(_) => ()
+        if read_dir(self.data_directory.clone())?.count() > 0 {
+            for item in read_dir(self.data_directory.clone())? {
+                match item?.file_name().into_string() {
+                    Ok(item) => {
+                        if pattern.is_match(item.as_str()) {
+                            println!("  • {}", item);
+                        }
+                    },
+                    Err(_) => ()
+                }
             }
+        } else {
+            println!("Your trash is empty.");
+        }
+
+        Ok(())
+    }
+
+    pub fn empty(&self) -> Result<()> {
+        for item in read_dir(self.data_directory.clone())? {
+            let item = item?.path();
+
+            if item.is_dir() {
+                remove_dir_all(item)?;
+            } else {
+                remove_file(item)?;
+            }
+        }
+
+        for item in read_dir(self.meta_directory.clone())? {
+            remove_file(item?.path())?;
         }
 
         Ok(())

@@ -10,9 +10,14 @@ args:
         short: r
         long: restore
         help: Restore an item
-        conflicts_with: [list]
+        conflicts_with: [list, empty]
     - list:
         short: l
         long: list
         help: List items in trash
-        conflicts_with: [restore]
+        conflicts_with: [restore, empty]
+    - empty:
+        short: e
+        long: empty
+        help: Empty the trash
+        conflicts_with: [list, restore]
