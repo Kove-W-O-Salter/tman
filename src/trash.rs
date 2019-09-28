@@ -18,7 +18,7 @@ use std::fs::{
 };
 use dirs::home_dir;
 use std::path::{PathBuf};
-use clap::{App};
+use clap::{App, AppSettings};
 use regex::Regex;
 
 pub struct Trash {
@@ -52,7 +52,11 @@ impl Trash {
 
     pub fn main(&mut self) -> Result<()> {
         let cli = load_yaml!("cli.yml");
-        let matches = App::from_yaml(cli).get_matches();
+        let matches = App::from_yaml(cli)
+            .setting(AppSettings::DisableHelpFlags)
+            .setting(AppSettings::VersionlessSubcommands)
+            .setting(AppSettings::SubcommandRequiredElseHelp)
+            .get_matches();
         
         match matches.subcommand() {
             ("delete", Some(sub_matches)) => self.delete(sub_matches.value_of("FILE").unwrap())?,

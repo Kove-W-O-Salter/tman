@@ -1,25 +1,29 @@
 name: trash
 version: "1.0"
 author: Kove Salter <kove.w.o.salter@gmail.com>
-about: Safely delete and restore
+about: Safely manage your trash
 subcommands:
     - delete:
-        help: Move a file to the trash
+        about: Move a file to the trash
+        help: Move a file to the trash directory
         args:
             - FILE:
                 help: The target file
                 required: true
     - restore:
-        help: Restore an item
+        about: Restore an item
+        help: Restore — move to original location — an item from the trash
         args:
             - FILE:
                 help: The target file
                 required: true
     - list:
-        help: List items in trash
+        about: List items in trash
+        help: List items in trash that, optionally, satisfy PATTERN — a regular expression
         args:
             - PATTERN:
                 help: The OPTIONAL search pattern
                 required: false
     - empty:
-        help: Empty the trash
+        about: Empty the trash
+        help: Permanently delete all items in the trash
