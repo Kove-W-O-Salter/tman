@@ -2,22 +2,24 @@ name: trash
 version: "1.0"
 author: Kove Salter <kove.w.o.salter@gmail.com>
 about: Safely delete and restore
-args:
-    - INPUT:
-        help: The input FILE or PATTERN
-        required: true
+subcommands:
+    - delete:
+        help: Move a file to the trash
+        args:
+            - FILE:
+                help: The target file
+                required: true
     - restore:
-        short: r
-        long: restore
         help: Restore an item
-        conflicts_with: [list, empty]
+        args:
+            - FILE:
+                help: The target file
+                required: true
     - list:
-        short: l
-        long: list
         help: List items in trash
-        conflicts_with: [restore, empty]
+        args:
+            - PATTERN:
+                help: The OPTIONAL search pattern
+                required: false
     - empty:
-        short: e
-        long: empty
         help: Empty the trash
-        conflicts_with: [list, restore]

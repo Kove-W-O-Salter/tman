@@ -53,18 +53,18 @@ impl Trash {
     pub fn main(&mut self) -> Result<()> {
         let cli = load_yaml!("cli.yml");
         let matches = App::from_yaml(cli).get_matches();
-
-        if matches.is_present("restore") {
-            self.restore(matches.value_of("INPUT").unwrap())?;
-        } else if matches.is_present("list") {
-            match Regex::new(matches.value_of("INPUT").unwrap()) {
-                Ok(pattern) => self.list(pattern)?,
-                Err(_) => Trash::e_invalid_input()?
-            };
-        } else if matches.is_present("empty") {
-            self.empty()?;
-        } else {
-            self.delete(matches.value_of("INPUT").unwrap())?;
+        
+        match matches.subcommand() {
+            ("delete", Some(sub_matches)) => self.delete(sub_matches.value_of("FILE").unwrap())?,
+            ("restore", Some(sub_matches)) => self.restore(sub_matches.value_of("FILE").unwrap())?,
+            ("list", Some(sub_matches)) => {
+                match Regex::new(sub_matches.value_of("PATTERN").unwrap_or("")) {
+                    Ok(pattern) => self.list(pattern)?,
+                    Err(_) => Trash::e_invalid_input()?
+                }
+            },
+            ("empty", Some(_)) => self.empty()?,
+            _ => Trash::e_invalid_input()?
         }
 
         Ok(())
