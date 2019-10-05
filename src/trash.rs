@@ -5,7 +5,7 @@ use std::io::{
     Result,
     Error,
     ErrorKind,
-    Write
+    Write,
 };
 use std::fs::{
     rename,
@@ -14,21 +14,26 @@ use std::fs::{
     read_to_string,
     remove_file,
     remove_dir_all,
-    File
+    File,
+};
+use std::path::{
+    PathBuf,
 };
 use dirs::home_dir;
-use std::path::{PathBuf};
-use clap::{App, AppSettings};
+use clap::{
+    App,
+    AppSettings,
+};
 use regex::Regex;
 
 pub struct Trash {
     meta_directory: PathBuf,
-    data_directory: PathBuf
+    data_directory: PathBuf,
 }
 
 impl Trash {
     pub fn new() -> Result<Trash> {
-        let mut directory = home_dir().unwrap_or(PathBuf::from(String::from("/root")));
+        let mut directory = home_dir().unwrap_or_default();
 
         directory.push(".trash");
 
@@ -38,11 +43,9 @@ impl Trash {
         meta_directory.push("meta");
         data_directory.push("data");
 
-        for path in [&directory, &meta_directory, &data_directory].iter() {
-            if !PathBuf::from(path).exists() {
-                create_dir(path)?;
-            }
-        }
+        create_dir(&directory).unwrap_or_default();
+        create_dir(&meta_directory).unwrap_or_default();
+        create_dir(&data_directory).unwrap_or_default();
 
         Ok(Trash {
             meta_directory: meta_directory,
@@ -52,27 +55,22 @@ impl Trash {
 
     pub fn main(&mut self) -> Result<()> {
         let cli = load_yaml!("cli.yml");
-        let matches = App::from_yaml(cli)
-            .setting(AppSettings::DisableHelpFlags)
-            .setting(AppSettings::VersionlessSubcommands)
-            .setting(AppSettings::SubcommandRequiredElseHelp)
-            .get_matches();
-        
+        let matches = App::from_yaml(cli).settings(&[
+            AppSettings::DisableHelpFlags,
+            AppSettings::VersionlessSubcommands,
+            AppSettings::SubcommandRequiredElseHelp,
+        ]).get_matches();
+
         match matches.subcommand() {
             ("delete", Some(sub_matches)) =>
-                for file in sub_matches.values_of("FILE").unwrap() {
-                    self.delete(file)?;
-                },
+                sub_matches.values_of("FILE").unwrap().try_for_each(|file| self.delete(file))?,
             ("restore", Some(sub_matches)) =>
-                for file in sub_matches.values_of("FILE").unwrap() {
-                    self.restore(file)?;
-                },
+                sub_matches.values_of("FILE").unwrap().try_for_each(|file| self.restore(file))?,
             ("list", Some(sub_matches)) =>
-                match Regex::new(sub_matches.value_of("PATTERN").unwrap_or("")) {
-                    Ok(pattern) =>
-                        self.list(pattern, sub_matches.is_present("simple"))?,
-                    Err(_) => Trash::e_invalid_input()?
-                },
+                self.list(
+                    Regex::new(sub_matches.value_of("PATTERN").unwrap_or("")).unwrap(),
+                    sub_matches.is_present("simple")
+                )?,
             ("empty", Some(_)) => self.empty()?,
             _ => Trash::e_invalid_input()?
         }
@@ -124,27 +122,23 @@ impl Trash {
     }
 
     pub fn list(&self, pattern: Regex, simple: bool) -> Result<()> {
-        if read_dir(self.data_directory.clone())?.count() > 0 {
+        let items = read_dir(&self.data_directory)?;
+        let item_count = read_dir(&self.data_directory)?.count();
+
+        if item_count > 0 {
             if !simple {
-                if pattern.as_str() != "" {
-                    println!("Listings for '{}'...", pattern);
-                } else {
-                    println!("Listings in trash...");
-                }
+                println!("Listings in trash:")
             }
 
-            for item in read_dir(self.data_directory.clone())? {
-                match item?.file_name().into_string() {
-                    Ok(item) => {
-                        if pattern.is_match(item.as_str()) {
-                            if simple {
-                                println!("{}", item);
-                            } else {
-                                println!("  • {}", item);
-                            }
-                        }
-                    },
-                    Err(_) => ()
+            for item in items {
+                let item = item.unwrap().file_name().into_string().unwrap();
+                
+                if pattern.is_match(item.as_str()) {
+                    if simple {
+                        println!("{}", item);
+                    } else {
+                        println!(" • {}", item);
+                    }
                 }
             }
         } else {
