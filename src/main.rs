@@ -1,10 +1,8 @@
 #[macro_use(load_yaml)]
 extern crate clap;
+mod logger;
 mod trash;
 
-use std::io::Result;
-use trash::Trash;
-
-fn main() -> Result<()> {
-    return Trash::new()?.main();
+fn main() {
+    trash::Trash::new().unwrap().main().unwrap()
 }

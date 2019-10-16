@@ -3,8 +3,6 @@ extern crate regex;
 
 use std::io::{
     Result,
-    Error,
-    ErrorKind,
     Write,
 };
 use std::fs::{
@@ -25,10 +23,12 @@ use clap::{
     AppSettings,
 };
 use regex::Regex;
+use super::logger;
 
 pub struct Trash {
     meta_directory: PathBuf,
     data_directory: PathBuf,
+    logger: logger::Logger,
 }
 
 impl Trash {
@@ -49,10 +49,14 @@ impl Trash {
 
         Ok(Trash {
             meta_directory: meta_directory,
-            data_directory: data_directory
+            data_directory: data_directory,
+            logger: logger::Logger::new(String::from("trash")),
         })
     }
 
+    /**
+     * Launch the application, parsing commandline arguments.
+     */
     pub fn main(&mut self) -> Result<()> {
         let cli = load_yaml!("cli.yml");
         let matches = App::from_yaml(cli).settings(&[
@@ -72,12 +76,17 @@ impl Trash {
                     sub_matches.is_present("simple")
                 )?,
             ("empty", Some(_)) => self.empty()?,
-            _ => Trash::e_invalid_input()?
+            _ => self.logger.error(logger::Error::InvalidCommandLine)?
         }
 
         Ok(())
     }
 
+    /**
+     * Delete a file 'target' creating a backup in the
+     * 'trash_directory'/'data_directory' and caching
+     * the original location in 'trash_directory'/'meta_directory'.
+     */
     pub fn delete(&self, target: &str) -> Result<()> {
         let target_location = PathBuf::from(String::from(target));
         let target_name = target_location.file_name().unwrap().to_str().unwrap();
@@ -96,12 +105,16 @@ impl Trash {
 
             rename(target_location, data_destination)?;
         } else {
-            Trash::e_not_found()?;
+            self.logger.error(logger::Error::MissingTargetFile(String::from(target)))?;
         }
 
         Ok(())
     }
 
+    /**
+     * Restore a previously deleted item to it's original location,
+     * removing it's backup and metadata.
+     */
     pub fn restore(&self, name: &str) -> Result<()> {
         let mut data_location = self.data_directory.clone();
         let mut meta_location = self.meta_directory.clone();
@@ -115,29 +128,29 @@ impl Trash {
             rename(data_location, destination)?;
             remove_file(meta_location)?;
         } else {
-            Trash::e_not_found()?;
+            self.logger.error(logger::Error::MissingTargetFile(String::from(name)))?;
         }
 
         Ok(())
     }
 
+    /**
+     * List the contents of the 'data_directory' as either
+     * a prettily formatted bullet point list or a simple
+     * CLI freindly line separated list. 
+     */
     pub fn list(&self, pattern: Regex, simple: bool) -> Result<()> {
-        let items = read_dir(&self.data_directory)?;
-        let item_count = read_dir(&self.data_directory)?.count();
+        let mut items: Vec<String> = read_dir(&self.data_directory)?.map(|item| item.unwrap().file_name().into_string().unwrap()).collect();
 
-        if item_count > 0 {
-            if !simple {
-                println!("Listings in trash:")
-            }
+        items.sort();
 
+        if !items.is_empty() {
             for item in items {
-                let item = item.unwrap().file_name().into_string().unwrap();
-                
                 if pattern.is_match(item.as_str()) {
                     if simple {
                         println!("{}", item);
                     } else {
-                        println!(" • {}", item);
+                        println!("🢒 {}", item);
                     }
                 }
             }
@@ -148,8 +161,11 @@ impl Trash {
         Ok(())
     }
 
+    /**
+     * Remove the contents of the 'data_directory' and the 'meta_directory'.
+     */
     pub fn empty(&self) -> Result<()> {
-        for item in read_dir(self.data_directory.clone())? {
+        for item in read_dir(&self.data_directory)? {
             let item = item?.path();
 
             if item.is_dir() {
@@ -159,18 +175,10 @@ impl Trash {
             }
         }
 
-        for item in read_dir(self.meta_directory.clone())? {
+        for item in read_dir(&self.meta_directory)? {
             remove_file(item?.path())?;
         }
 
         Ok(())
-    }
-
-    pub fn e_not_found<T>() -> Result<T> {
-        return Err(Error::from(ErrorKind::NotFound));
-    }
-
-    pub fn e_invalid_input<T>() -> Result<T> {
-        return Err(Error::from(ErrorKind::InvalidInput));        
     }
 }
