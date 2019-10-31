@@ -1,8 +1,14 @@
 #[macro_use(load_yaml)]
 extern crate clap;
-mod logger;
+extern crate dirs;
+extern crate regex;
+extern crate serde;
+extern crate serde_json;
 mod trash;
+mod cache;
 
-fn main() {
-    trash::Trash::new().unwrap().main().unwrap()
+use std::io::Result;
+
+fn main() -> Result<()> {
+    trash::Trash::new()?.main()
 }

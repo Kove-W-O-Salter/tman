@@ -1,18 +1,13 @@
-extern crate dirs;
-extern crate regex;
-
 use std::io::{
     Result,
-    Write,
+    Error,
+    ErrorKind,
 };
 use std::fs::{
     rename,
     create_dir,
-    read_dir,
-    read_to_string,
     remove_file,
     remove_dir_all,
-    File,
 };
 use std::path::{
     PathBuf,
@@ -23,12 +18,11 @@ use clap::{
     AppSettings,
 };
 use regex::Regex;
-use super::logger;
+use super::cache::Cache;
 
 pub struct Trash {
-    meta_directory: PathBuf,
-    data_directory: PathBuf,
-    logger: logger::Logger,
+    cache: Cache,
+    data_path: PathBuf,
 }
 
 impl Trash {
@@ -37,26 +31,23 @@ impl Trash {
 
         directory.push(".trash");
 
-        let mut meta_directory = directory.clone();
-        let mut data_directory = directory.clone();
+        let mut cache_path = directory.clone();
+        let mut data_path = directory.clone();
 
-        meta_directory.push("meta");
-        data_directory.push("data");
+        cache_path.push("cache.json");
+        data_path.push("data");
 
         create_dir(&directory).unwrap_or_default();
-        create_dir(&meta_directory).unwrap_or_default();
-        create_dir(&data_directory).unwrap_or_default();
+        create_dir(&data_path).unwrap_or_default();
+
+        let cache = Cache::new(&cache_path)?;
 
         Ok(Trash {
-            meta_directory: meta_directory,
-            data_directory: data_directory,
-            logger: logger::Logger::new(String::from("trash")),
+            cache: cache,
+            data_path: data_path,
         })
     }
 
-    /**
-     * Launch the application, parsing commandline arguments.
-     */
     pub fn main(&mut self) -> Result<()> {
         let cli = load_yaml!("cli.yml");
         let matches = App::from_yaml(cli).settings(&[
@@ -67,81 +58,55 @@ impl Trash {
 
         match matches.subcommand() {
             ("delete", Some(sub_matches)) =>
-                sub_matches.values_of("FILE").unwrap().try_for_each(|file| self.delete(file))?,
+                sub_matches.values_of("FILE").unwrap().try_for_each(|file| self.delete(String::from(file))),
             ("restore", Some(sub_matches)) =>
-                sub_matches.values_of("FILE").unwrap().try_for_each(|file| self.restore(file))?,
+                sub_matches.values_of("FILE").unwrap().try_for_each(|file| self.restore(String::from(file))),
             ("list", Some(sub_matches)) =>
                 self.list(
                     Regex::new(sub_matches.value_of("PATTERN").unwrap_or("")).unwrap(),
                     sub_matches.is_present("simple")
-                )?,
-            ("empty", Some(_)) => self.empty()?,
-            _ => self.logger.error(logger::Error::InvalidCommandLine)?
-        }
+                ),
+            ("empty", Some(_)) => self.empty(),
+            _ => Err(Error::new(ErrorKind::Other, "Invalid usage!"))
+        }?;
 
-        Ok(())
+        self.cache.commit()
     }
 
-    /**
-     * Delete a file 'target' creating a backup in the
-     * 'trash_directory'/'data_directory' and caching
-     * the original location in 'trash_directory'/'meta_directory'.
-     */
-    pub fn delete(&self, target: &str) -> Result<()> {
-        let target_location = PathBuf::from(String::from(target));
-        let target_name = target_location.file_name().unwrap().to_str().unwrap();
+    pub fn delete(&mut self, target: String) -> Result<()> {
+        let location = PathBuf::from(&target);
+        let name = location.file_name().unwrap().to_str().unwrap();
 
-        if target_location.exists() {
-            let mut data_destination = self.data_directory.clone();
-            let mut meta_destination = self.meta_directory.clone();
+        if location.exists() {
+            let mut destination = self.data_path.clone();
 
-            data_destination.push(target_name);
-            meta_destination.push(target_name);
+            destination.push(name);
 
-            let mut meta_file = File::create(meta_destination.clone())?;
+            self.cache.add_item(String::from(name), target.clone())?;
 
-            meta_file.write_all(target_location.as_path().to_str().unwrap().as_bytes())?;
-            meta_file.sync_data()?;
-
-            rename(target_location, data_destination)?;
+            rename(location, destination)
         } else {
-            self.logger.error(logger::Error::MissingTargetFile(String::from(target)))?;
+            Err(Error::new(ErrorKind::Other, "Could not locate target!"))?
         }
-
-        Ok(())
     }
 
-    /**
-     * Restore a previously deleted item to it's original location,
-     * removing it's backup and metadata.
-     */
-    pub fn restore(&self, name: &str) -> Result<()> {
-        let mut data_location = self.data_directory.clone();
-        let mut meta_location = self.meta_directory.clone();
+    pub fn restore(&mut self, name: String) -> Result<()> {
+        let mut location = self.data_path.clone();
 
-        data_location.push(name);
-        meta_location.push(name);
+        location.push(&name);
 
-        if data_location.exists() && meta_location.exists() {
-            let destination = read_to_string(&meta_location)?;
+        if location.exists() {
+            let origin = self.cache.remove_item(name.clone())?;
 
-            rename(data_location, destination)?;
-            remove_file(meta_location)?;
+            rename(location, PathBuf::from(origin))
         } else {
-            self.logger.error(logger::Error::MissingTargetFile(String::from(name)))?;
+            Err(Error::new(ErrorKind::Other, "Could not locate target!"))
         }
-
-        Ok(())
     }
 
-    /**
-     * List the contents of the 'data_directory' as either
-     * a prettily formatted bullet point list or a simple
-     * CLI freindly line separated list. 
-     */
     pub fn list(&self, pattern: Regex, simple: bool) -> Result<()> {
-        let mut items: Vec<String> = read_dir(&self.data_directory)?.map(|item| item.unwrap().file_name().into_string().unwrap()).collect();
-
+        let mut items: Vec<String> = self.cache.items.clone().iter().map(|item| item.name.clone()).collect();
+        
         items.sort();
 
         if !items.is_empty() {
@@ -161,22 +126,23 @@ impl Trash {
         Ok(())
     }
 
-    /**
-     * Remove the contents of the 'data_directory' and the 'meta_directory'.
-     */
-    pub fn empty(&self) -> Result<()> {
-        for item in read_dir(&self.data_directory)? {
-            let item = item?.path();
+    pub fn empty(&mut self) -> Result<()> {
+        let mut location;
+        let mut name;
 
-            if item.is_dir() {
-                remove_dir_all(item)?;
+        for item in self.cache.items.clone() {
+            name = item.name;
+            location = PathBuf::new();
+            location.push(&self.data_path);
+            location.push(&name);
+
+            if location.is_dir() {
+                remove_dir_all(location)?;
             } else {
-                remove_file(item)?;
+                remove_file(location)?;
             }
-        }
 
-        for item in read_dir(&self.meta_directory)? {
-            remove_file(item?.path())?;
+            self.cache.remove_item(name.clone())?;
         }
 
         Ok(())
