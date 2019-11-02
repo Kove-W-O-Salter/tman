@@ -1,7 +1,7 @@
 use std::io::{
-    Result,
-    Error,
-    ErrorKind,
+    // Result,
+    // Error,
+    // ErrorKind,
     BufReader,
 };
 use std::fs::{
@@ -15,6 +15,10 @@ use serde::{
 use serde_json::{
     from_reader,
     to_writer,
+};
+use super::error::{
+    Result,
+    Error,
 };
 
 pub struct Cache {
@@ -37,10 +41,7 @@ impl Cache {
                 .create(true)
                 .open(cache_file)?;
 
-            match from_reader(BufReader::new(cache_handle)) {
-                Ok(cache_items) => Ok(cache_items),
-                Err(_) => Err(Error::new(ErrorKind::Other, "Could not pares cache!"))
-            }
+            from_reader(BufReader::new(cache_handle))
         }?;
 
         Ok(Cache {
@@ -55,17 +56,16 @@ impl Cache {
             .truncate(true)
             .open(&self.cache_file)?;
 
-        match to_writer(cache_handle, &self.items) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(Error::new(ErrorKind::Other, "Could not commit changes to cache!")),
-        }
+        to_writer(cache_handle, &self.items)?;
+
+        Ok(())
     }
 
     pub fn conflicts(&self, expect: bool, name: String) -> Result<()> {
         if self.items.iter().any(|item| item.name == name) == expect {
             Ok(())
         } else {
-            Err(Error::new(ErrorKind::Other, "Missing or duplicate files!"))
+            Err(Error::MissingTarget(name.clone()))
         }
     }
 
@@ -83,7 +83,7 @@ impl Cache {
                 self.items.remove(index);
                 Ok(item.origin)
             },
-            None => Err(Error::new(ErrorKind::Other, "Missing or duplicate files!")),
+            None => Err(Error::MissingTarget(name.clone())),
         }
     }
 }

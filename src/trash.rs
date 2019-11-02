@@ -1,8 +1,3 @@
-use std::io::{
-    Result,
-    Error,
-    ErrorKind,
-};
 use std::fs::{
     rename,
     create_dir,
@@ -19,6 +14,10 @@ use clap::{
 };
 use regex::Regex;
 use super::cache::Cache;
+use super::error::{
+    Result,
+    Error,
+};
 
 pub struct Trash {
     cache: Cache,
@@ -67,7 +66,7 @@ impl Trash {
                     sub_matches.is_present("simple")
                 ),
             ("empty", Some(_)) => self.empty(),
-            _ => Err(Error::new(ErrorKind::Other, "Invalid usage!"))
+            _ => Err(Error::InvalidArguments)
         }?;
 
         self.cache.commit()
@@ -84,9 +83,11 @@ impl Trash {
 
             self.cache.add_item(String::from(name), target.clone())?;
 
-            rename(location, destination)
+            rename(location, destination)?;
+
+            Ok(())
         } else {
-            Err(Error::new(ErrorKind::Other, "Could not locate target!"))?
+            Err(Error::MissingTarget(target.clone()))
         }
     }
 
@@ -98,9 +99,11 @@ impl Trash {
         if location.exists() {
             let origin = self.cache.remove_item(name.clone())?;
 
-            rename(location, PathBuf::from(origin))
+            rename(location, PathBuf::from(origin))?;
+
+            Ok(())
         } else {
-            Err(Error::new(ErrorKind::Other, "Could not locate target!"))
+            Err(Error::MissingTarget(name.clone()))
         }
     }
 
