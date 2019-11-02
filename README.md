@@ -12,6 +12,8 @@ cargo build --release
 cp ./target/release/trash ~/.local/bin/trash
 ```
 and you're good to go.
+## BINARY
+If you're on an 64 bit Ubuntu based distro you should be able to download a precompiled binary [here](https://drive.google.com/open?id=1LNJnqY3O6GdpY2ROCUg_t3BP4SK8X06I). However, this binary will not always be up to date.
 
 ## USAGE
 * Move several files or directories to the trash.
