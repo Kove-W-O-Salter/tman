@@ -10,6 +10,7 @@ use dirs::home_dir;
 use clap::{
     App,
     AppSettings,
+    Arg
 };
 use chrono::Utc;
 use regex::Regex;
@@ -48,35 +49,71 @@ impl Trash {
     }
 
     pub fn main(&mut self) -> Result<()> {
-        let cli = load_yaml!("cli.yml");
-        let matches = App::from_yaml(cli).settings(&[
-            AppSettings::DisableHelpFlags,
-            AppSettings::VersionlessSubcommands,
-            AppSettings::SubcommandRequiredElseHelp,
-        ]).get_matches();
+        let max_argument_values: u64 = 18_446_744_073_709_551_615;
 
-        match matches.subcommand() {
-            ("delete", Some(sub_matches)) =>
-                sub_matches.values_of("FILE").unwrap().try_for_each(|file| self.delete(String::from(file))),
-            ("restore", Some(sub_matches)) =>
-                sub_matches.values_of("FILE").unwrap().try_for_each(|file| self.restore(String::from(file))),
-            ("list", Some(sub_matches)) =>
-                self.list(
-                    Regex::new(sub_matches.value_of("PATTERN").unwrap_or("")).unwrap(),
-                    sub_matches.is_present("simple")
-                ),
-            ("empty", Some(_)) => self.empty(),
-            _ => Err(Error::InvalidArguments)
-        }?;
+        let matches = App::new("Trash")
+            .name("trash")
+            .version("1.0")
+            .author("Kove Salter <kove.w.o.salter@gmail.com>")
+            .about("Safely manage your trash")
+            .setting(AppSettings::ArgRequiredElseHelp)
+            .arg(Arg::with_name("delete")
+                .long("delete")
+                .short("d")
+                .help("Delete an item, storing it in the trash")
+                .takes_value(true)
+                .value_name("FILES")
+                .max_values(max_argument_values)
+                .conflicts_with_all(&[ "restore", "list", "pattern", "empty" ]))
+            .arg(Arg::with_name("restore")
+                .long("restore")
+                .short("r")
+                .help("Restore files from the trash")
+                .takes_value(true)
+                .value_name("FILES")
+                .max_values(max_argument_values)
+                .conflicts_with_all(&[ "delete", "list", "pattern", "empty" ]))
+            .arg(Arg::with_name("list")
+                .long("list")
+                .short("l")
+                .help("List items in the trash")
+                .conflicts_with_all(&[ "delete", "restore", "empty" ]))
+            .arg(Arg::with_name("pattern")
+                .long("pattern")
+                .short("p")
+                .help("Set a pattern for --list")
+                .value_name("PATTERN")
+                .takes_value(true)
+                .requires("list")
+                .conflicts_with_all(&[ "delete", "restore", "empty" ]))
+            .arg(Arg::with_name("empty")
+                .long("empty")
+                .short("e")
+                .help("Permenantly delete all trash items")
+                .takes_value(false)
+                .conflicts_with_all(&[ "delete", "restore", "list", "pattern" ]))
+            .get_matches();
+
+        if let Some(mut files) = matches.values_of("delete") {
+            files.try_for_each(|file| self.delete(String::from(file)))?;
+        } else if let Some(mut files) = matches.values_of("restore") {
+            files.try_for_each(|file| self.restore(String::from(file)))?;
+        } else if matches.is_present("list") {
+            self.list(Regex::new(matches.value_of("pattern").unwrap_or(""))?, false)?;
+        } else if matches.is_present("empty") {
+            self.empty()?;
+        } else {
+            Err(Error::InvalidArguments)?;
+        }
 
         self.cache.commit()
     }
 
     pub fn delete(&mut self, target: String) -> Result<()> {
-        let location = canonicalize(PathBuf::from(&target))?;
-        let name = location.file_name().unwrap().to_str().unwrap();
+        if PathBuf::from(&target).exists() {
+            let location = canonicalize(PathBuf::from(&target))?;
+            let name = location.file_name().unwrap().to_str().unwrap();
 
-        if location.exists() {
             let mut destination = self.data_path.clone();
             let id = format!("{:?}", Utc::now());
             

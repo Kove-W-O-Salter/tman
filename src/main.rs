@@ -1,4 +1,3 @@
-#[macro_use(load_yaml)]
 extern crate clap;
 extern crate dirs;
 extern crate regex;
