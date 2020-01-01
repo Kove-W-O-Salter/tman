@@ -1,12 +1,5 @@
-use std::io::{
-    // Result,
-    // Error,
-    // ErrorKind,
-    BufReader,
-};
-use std::fs::{
-    OpenOptions,
-};
+use std::io::BufReader;
+use std::fs::OpenOptions;
 use std::path::PathBuf;
 use serde::{
     Serialize,
@@ -20,33 +13,35 @@ use super::error::{
     Result,
     Error,
 };
+use super::dictionary::Dictionary;
 
 pub struct Cache {
-    pub items: Vec<Item>,
-    pub cache_file: PathBuf,
+    dictionary: Dictionary<String, Entry>,
+    cache_path: PathBuf
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Item {
-    pub name: String,
-    pub origin: String,
+pub struct Entry {
+    name: String,
+    id: String,
+    origin: String
 }
 
 impl Cache {
-    pub fn new(cache_file: &PathBuf) -> Result<Cache> {
-        let items = {
+    pub fn new(cache_path: PathBuf) -> Result<Cache> {
+        let dictionary = {
             let cache_handle = OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
-                .open(cache_file)?;
+                .open(cache_path.clone())?;
 
             from_reader(BufReader::new(cache_handle))
-        }?;
+        }.unwrap_or(Dictionary::new());
 
         Ok(Cache {
-            items: items,
-            cache_file: cache_file.clone(),
+            dictionary,
+            cache_path
         })
     }
 
@@ -54,45 +49,50 @@ impl Cache {
         let cache_handle = OpenOptions::new()
             .write(true)
             .truncate(true)
-            .open(&self.cache_file)?;
+            .open(&self.cache_path)?;
 
-        to_writer(cache_handle, &self.items)?;
+        to_writer(cache_handle, &self.dictionary)?;
 
         Ok(())
     }
 
-    pub fn conflicts(&self, expect: bool, name: String) -> Result<()> {
-        if self.items.iter().any(|item| item.name == name) == expect {
-            Ok(())
-        } else {
-            Err(Error::MissingTarget(name.clone()))
-        }
+    pub fn push(&mut self, name: String, id: String, origin: String) {
+        self.dictionary.push(name.clone(), Entry::new(name, id, origin));
     }
 
-    pub fn add_item(&mut self, name: String, origin: String) -> Result<()> {
-        self.conflicts(false, name.clone())?;
-        self.items.push(Item::new(name, origin));
-        Ok(())
+    pub fn pop<F>(&mut self, predicate: F) -> Result<Vec<Entry>> where
+        F: Fn(&String) -> bool {
+        if !self.dictionary.contains_key(&predicate) {
+            Err(Error::MissingTargetPredicate)?
+        }
+
+        Ok(self.dictionary.pop(predicate, |_| true))
     }
 
-    pub fn remove_item(&mut self, name: String) -> Result<String> {
-        self.conflicts(true, name.clone())?;
-        match self.items.iter().position(|item| item.name == name) {
-            Some(index) => {
-                let item = self.items[index].clone();
-                self.items.remove(index);
-                Ok(item.origin)
-            },
-            None => Err(Error::MissingTarget(name.clone())),
-        }
+    pub fn values<F>(&self, predicate: F) -> Vec<Entry> where
+        F: Fn(&String) -> bool {
+        self.dictionary.values(predicate)
     }
 }
 
-impl Item {
-    pub fn new(name: String, origin: String) -> Item {
-        Item {
-            name: name,
-            origin: origin,
+impl Entry {
+    pub fn new(name: String, id: String, origin: String) -> Entry {
+        Entry {
+            name,
+            id,
+            origin
         }
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn id(&self) -> &String {
+        &self.id
+    }
+
+    pub fn origin(&self) -> &String {
+        &self.origin
     }
 }

@@ -1,17 +1,17 @@
 use std::fs::{
     rename,
     create_dir,
+    canonicalize,
     remove_file,
     remove_dir_all,
 };
-use std::path::{
-    PathBuf,
-};
+use std::path::PathBuf;
 use dirs::home_dir;
 use clap::{
     App,
     AppSettings,
 };
+use chrono::Utc;
 use regex::Regex;
 use super::cache::Cache;
 use super::error::{
@@ -39,7 +39,7 @@ impl Trash {
         create_dir(&directory).unwrap_or_default();
         create_dir(&data_path).unwrap_or_default();
 
-        let cache = Cache::new(&cache_path)?;
+        let cache = Cache::new(cache_path)?;
 
         Ok(Trash {
             cache: cache,
@@ -73,15 +73,16 @@ impl Trash {
     }
 
     pub fn delete(&mut self, target: String) -> Result<()> {
-        let location = PathBuf::from(&target);
+        let location = canonicalize(PathBuf::from(&target))?;
         let name = location.file_name().unwrap().to_str().unwrap();
 
         if location.exists() {
             let mut destination = self.data_path.clone();
-
-            destination.push(name);
-
-            self.cache.add_item(String::from(name), target.clone())?;
+            let id = format!("{:?}", Utc::now());
+            
+            destination.push(id.clone());
+            
+            self.cache.push(String::from(name), id, String::from(location.to_str().unwrap()));
 
             rename(location, destination)?;
 
@@ -91,35 +92,45 @@ impl Trash {
         }
     }
 
-    pub fn restore(&mut self, name: String) -> Result<()> {
-        let mut location = self.data_path.clone();
+    pub fn restore(&mut self, target: String) -> Result<()> {
+        let mut location: PathBuf;
+        let mut destination: PathBuf;
+        let mut ensure_unique: bool = false;
+        let entries = self.cache.pop(|key| key == &target)?;
 
-        location.push(&name);
-
-        if location.exists() {
-            let origin = self.cache.remove_item(name.clone())?;
-
-            rename(location, PathBuf::from(origin))?;
-
-            Ok(())
-        } else {
-            Err(Error::MissingTarget(name.clone()))
+        if entries.len() > 1 {
+            ensure_unique = true;
         }
+
+        for entry in entries {
+            location = self.data_path.clone();
+            destination = if ensure_unique {
+                PathBuf::from(format!("{}_{}", entry.origin(), entry.id()))
+            } else {
+                PathBuf::from(entry.origin())
+            };
+
+            location.push(entry.id());
+
+            if location.exists() {
+                rename(location.clone(), destination)?;
+            } else {
+                Err(Error::MissingTarget(entry.name().clone()))?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn list(&self, pattern: Regex, simple: bool) -> Result<()> {
-        let mut items: Vec<String> = self.cache.items.clone().iter().map(|item| item.name.clone()).collect();
-        
-        items.sort();
+        let entries = self.cache.values(|key| pattern.is_match(key.as_str()));
 
-        if !items.is_empty() {
-            for item in items {
-                if pattern.is_match(item.as_str()) {
-                    if simple {
-                        println!("{}", item);
-                    } else {
-                        println!("🢒 {}", item);
-                    }
+        if !entries.is_empty() {
+            for entry in entries.iter() {
+                if simple {
+                    println!("{}", entry.name());
+                } else {
+                    println!("🢒 {} ({}) <- {}", entry.name(), entry.id(), entry.origin());
                 }
             }
         } else {
@@ -131,21 +142,17 @@ impl Trash {
 
     pub fn empty(&mut self) -> Result<()> {
         let mut location;
-        let mut name;
 
-        for item in self.cache.items.clone() {
-            name = item.name;
+        for entry in self.cache.pop(|_| true)?.iter() {
             location = PathBuf::new();
             location.push(&self.data_path);
-            location.push(&name);
+            location.push(entry.id());
 
             if location.is_dir() {
                 remove_dir_all(location)?;
             } else {
                 remove_file(location)?;
             }
-
-            self.cache.remove_item(name.clone())?;
         }
 
         Ok(())

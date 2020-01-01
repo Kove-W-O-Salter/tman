@@ -5,6 +5,7 @@ pub enum Error {
     InvalidCache,
     InvalidRegex,
     MissingTarget(String),
+    MissingTargetPredicate,
     Unknown,
 }
 
@@ -15,7 +16,8 @@ impl Error {
             Error::InvalidCache => format!("invalid cache"),
             Error::InvalidRegex => format!("invalid regex"),
             Error::MissingTarget(target) => format!("could not locate '{}'", target),
-            Error::Unknown => format!("unknown"),
+            Error::MissingTargetPredicate => format!("could not locate any entries satisfying the predicate"),
+            Error::Unknown => format!("unknown")
         })
     }
 }
