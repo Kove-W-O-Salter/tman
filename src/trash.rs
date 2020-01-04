@@ -10,6 +10,7 @@ use dirs::home_dir;
 use clap::{
     App,
     AppSettings,
+    ArgMatches,
     Arg
 };
 use chrono::Utc;
@@ -27,12 +28,12 @@ pub struct Trash {
 
 impl Trash {
     pub fn new() -> Result<Trash> {
-        let mut directory = home_dir().unwrap_or_default();
+        let mut directory: PathBuf = home_dir().unwrap_or_default();
 
         directory.push(".trash");
 
-        let mut cache_path = directory.clone();
-        let mut data_path = directory.clone();
+        let mut cache_path: PathBuf = directory.clone();
+        let mut data_path: PathBuf = directory.clone();
 
         cache_path.push("cache.json");
         data_path.push("data");
@@ -40,10 +41,8 @@ impl Trash {
         create_dir(&directory).unwrap_or_default();
         create_dir(&data_path).unwrap_or_default();
 
-        let cache = Cache::new(cache_path)?;
-
         Ok(Trash {
-            cache: cache,
+            cache: Cache::new(&cache_path)?,
             data_path: data_path,
         })
     }
@@ -51,7 +50,7 @@ impl Trash {
     pub fn main(&mut self) -> Result<()> {
         let max_argument_values: u64 = 18_446_744_073_709_551_615;
 
-        let matches = App::new("Trash")
+        let matches: ArgMatches<'static> = App::new("Trash")
             .name("trash")
             .version("1.0")
             .author("Kove Salter <kove.w.o.salter@gmail.com>")
@@ -59,39 +58,45 @@ impl Trash {
             .setting(AppSettings::ArgRequiredElseHelp)
             .arg(Arg::with_name("delete")
                 .long("delete")
-                .short("d")
+                .short("D")
                 .help("Delete an item, storing it in the trash")
                 .takes_value(true)
                 .value_name("FILES")
                 .max_values(max_argument_values)
-                .conflicts_with_all(&[ "restore", "list", "pattern", "empty" ]))
+                .conflicts_with_all(&[ "restore", "list", "pattern", "simple", "empty" ]))
             .arg(Arg::with_name("restore")
                 .long("restore")
-                .short("r")
+                .short("R")
                 .help("Restore files from the trash")
                 .takes_value(true)
                 .value_name("FILES")
                 .max_values(max_argument_values)
-                .conflicts_with_all(&[ "delete", "list", "pattern", "empty" ]))
+                .conflicts_with_all(&[ "delete", "list", "pattern", "simple", "empty" ]))
             .arg(Arg::with_name("list")
                 .long("list")
-                .short("l")
+                .short("L")
                 .help("List items in the trash")
                 .conflicts_with_all(&[ "delete", "restore", "empty" ]))
             .arg(Arg::with_name("pattern")
                 .long("pattern")
                 .short("p")
                 .help("Set a pattern for --list")
-                .value_name("PATTERN")
                 .takes_value(true)
+                .value_name("PATTERN")
+                .requires("list")
+                .conflicts_with_all(&[ "delete", "restore", "empty" ]))
+            .arg(Arg::with_name("simple")
+                .long("simple")
+                .short("s")
+                .help("Use simple list format for --list")
                 .requires("list")
                 .conflicts_with_all(&[ "delete", "restore", "empty" ]))
             .arg(Arg::with_name("empty")
                 .long("empty")
-                .short("e")
+                .short("E")
                 .help("Permenantly delete all trash items")
                 .takes_value(false)
-                .conflicts_with_all(&[ "delete", "restore", "list", "pattern" ]))
+                .conflicts_with_all(&[ "delete", "restore", "list", "pattern", "simple" ]))
             .get_matches();
 
         if let Some(mut files) = matches.values_of("delete") {
@@ -99,60 +104,55 @@ impl Trash {
         } else if let Some(mut files) = matches.values_of("restore") {
             files.try_for_each(|file| self.restore(String::from(file)))?;
         } else if matches.is_present("list") {
-            self.list(Regex::new(matches.value_of("pattern").unwrap_or(""))?, false)?;
+            self.list(Regex::new(matches.value_of("pattern").unwrap_or(""))?, matches.is_present("simple"))?;
         } else if matches.is_present("empty") {
             self.empty()?;
         } else {
             Err(Error::InvalidArguments)?;
         }
 
-        self.cache.commit()
+        self.cache.end()?;
+
+        Ok(())
     }
 
     pub fn delete(&mut self, target: String) -> Result<()> {
         if PathBuf::from(&target).exists() {
-            let location = canonicalize(PathBuf::from(&target))?;
-            let name = location.file_name().unwrap().to_str().unwrap();
+            let location: PathBuf = canonicalize(PathBuf::from(&target))?;
+            let key: String = String::from(location.file_name().unwrap().to_str().unwrap());
 
-            let mut destination = self.data_path.clone();
-            let id = format!("{:?}", Utc::now());
+            let mut destination: PathBuf = self.data_path.clone();
+            let timestamp = format!("{:?}", Utc::now());
             
-            destination.push(id.clone());
+            destination.push(timestamp.clone());
             
-            self.cache.push(String::from(name), id, String::from(location.to_str().unwrap()));
+            self.cache.push(key, String::from(location.to_str().unwrap()), timestamp);
 
             rename(location, destination)?;
 
             Ok(())
         } else {
-            Err(Error::MissingTarget(target.clone()))
+            Err(Error::MissingTarget(target))
         }
     }
 
-    pub fn restore(&mut self, target: String) -> Result<()> {
+    pub fn restore(&mut self, target_key: String) -> Result<()> {
         let mut location: PathBuf;
         let mut destination: PathBuf;
-        let mut ensure_unique: bool = false;
-        let entries = self.cache.pop(|key| key == &target)?;
-
-        if entries.len() > 1 {
-            ensure_unique = true;
-        }
+        let entries = self.cache.pop(|key| key == &target_key, |_| true)?;
 
         for entry in entries {
-            location = self.data_path.clone();
-            destination = if ensure_unique {
-                PathBuf::from(format!("{}_{}", entry.origin(), entry.id()))
-            } else {
-                PathBuf::from(entry.origin())
-            };
+            for version in entry.history() {
+                location = self.data_path.clone();
+                destination = PathBuf::from(format!("{}_{}", entry.origin(), version));
 
-            location.push(entry.id());
+                location.push(version);
 
-            if location.exists() {
-                rename(location.clone(), destination)?;
-            } else {
-                Err(Error::MissingTarget(entry.name().clone()))?;
+                if location.exists() {
+                    rename(location.clone(), destination)?;
+                } else {
+                    Err(Error::MissingTarget(version.clone()))?;
+                }
             }
         }
 
@@ -160,18 +160,39 @@ impl Trash {
     }
 
     pub fn list(&self, pattern: Regex, simple: bool) -> Result<()> {
-        let entries = self.cache.values(|key| pattern.is_match(key.as_str()));
+        let mut empty: bool = true;
+        let show_all: bool = pattern.as_str().is_empty();
 
-        if !entries.is_empty() {
-            for entry in entries.iter() {
+        if !simple {
+            if show_all {
+                println!("Showing results in trash.");
+            } else {
+                println!("Showing results for '{}' in trash.", pattern.as_str());
+            }
+        }
+
+        for entry in self.cache.entries().iter() {
+            if pattern.is_match(entry.key()) {
                 if simple {
-                    println!("{}", entry.name());
+                    println!("{}", entry.key());
                 } else {
-                    println!("🢒 {} ({}) <- {}", entry.name(), entry.id(), entry.origin());
+                    println!("  * {} <- {}", entry.key(), entry.origin());
+                    
+                    for version in entry.history().iter() {
+                        println!("    * {}", version)
+                    }
+
+                    empty = false;
                 }
             }
-        } else {
-            println!("Your trash is empty.");
+        }
+
+        if !simple {
+            if empty && show_all {
+                println!("Your trash is empty!");
+            } else if empty {
+                println!("No results for '{}'.", pattern.as_str());
+            }
         }
 
         Ok(())
@@ -180,10 +201,10 @@ impl Trash {
     pub fn empty(&mut self) -> Result<()> {
         let mut location;
 
-        for entry in self.cache.pop(|_| true)?.iter() {
+        for entry in self.cache.pop(|_| { true }, |_| { true })? {
             location = PathBuf::new();
             location.push(&self.data_path);
-            location.push(entry.id());
+            location.push(entry.key());
 
             if location.is_dir() {
                 remove_dir_all(location)?;

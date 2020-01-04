@@ -8,7 +8,6 @@ extern crate chrono;
 mod trash;
 mod cache;
 mod error;
-mod dictionary;
 
 fn main() {
     match trash::Trash::new() {
