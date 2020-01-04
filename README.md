@@ -18,29 +18,29 @@ If you're on an 64 bit Ubuntu based distro you should be able to download a prec
 ## USAGE
 * Move several files or directories to the trash.
   ```
-  trash delete FILE_1...
+  trash -D f0,f1,...,fn
   ```
 * Restore several files from the trash to their original locations:
   ```
-  trash restore FILE_1...
+  trash -R f0,f1,...,fn
   ```
 * List the items in the trash that, optionally, match the regex PATTERN:
   ```
-  trash list [PATTERN]
+  trash -L p
   ```
 * Permenantly delete all items in the trash including their original locations:
   ```
-  trash empty
+  trash -E
   ```
 
 ## EXAMPLES
 * Move `test.txt`, `test1.txt`, `test2.txt` and `test3.txt` to the trash run:
   ```bash
-  trash delete test{,1,2,3}.txt
+  trash -D test{,1,2,3}.txt
   ```
 * Restore `test.txt`, `test1.txt`, `test2.txt` and `test3.txt` to the trash run:
   ```bash
-  trash restore test{,1,2,3}.txt
+  trash -R test{,1,2,3}.txt
   ```
 
 ## TODO

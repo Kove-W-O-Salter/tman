@@ -23,7 +23,7 @@ use super::error::{
 
 pub struct Trash {
     cache: Cache,
-    data_path: PathBuf,
+    data_path: PathBuf
 }
 
 impl Trash {
@@ -43,12 +43,12 @@ impl Trash {
 
         Ok(Trash {
             cache: Cache::new(&cache_path)?,
-            data_path: data_path,
+            data_path: data_path
         })
     }
 
     pub fn main(&mut self) -> Result<()> {
-        let max_argument_values: u64 = 18_446_744_073_709_551_615;
+        let max_argument_values: u64 = std::u64::MAX;
 
         let matches: ArgMatches<'static> = App::new("Trash")
             .name("trash")
