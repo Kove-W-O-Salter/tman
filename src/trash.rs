@@ -50,22 +50,26 @@ impl Trash {
     pub fn main(&mut self) -> Result<()> {
         let max_argument_values: u64 = std::u64::MAX;
 
-        /*
-         * trash
-         *   --delete <KEY>...
-         *   --restore <KEY>:
-         *      --origin <ORIGIN>
-         *      --version <VERSION>
-         *   --list:
-         *      --pattern <PATTERN>
-         *   --empty
-         */
         let matches: ArgMatches<'static> = App::new("Trash")
             .name("trash")
             .version("1.0")
             .author("Kove Salter <kove.w.o.salter@gmail.com>")
             .about("Safely manage your trash")
             .setting(AppSettings::ArgRequiredElseHelp)
+            .help(
+r#"USAGE:
+    trash <ACTION>
+
+ACTIONS:
+    --delete         -D    <FILE_1>...    Trash specified files
+    --restore        -R    <FILE>         Restore specified file
+        --origin     -o    <PATH>         Set the origin
+        --version    -v    <TIMESTAMP>    Set the revision
+    --list           -L                   List items in the trash
+        --pattern    -p    <REGEX>        Set the search pattern
+        --simple     -p                   Set the simple mode
+    --empty          -E                   Permenantly delete trash content"#
+            )
             .arg(Arg::with_name("delete")
                 .long("delete")
                 .short("D")
