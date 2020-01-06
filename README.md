@@ -1,7 +1,7 @@
 # TRASH-RS
 Safely delete and restore files.
 
-![trash-rs](https://github.com/Kove-W-O-Salter/trash-rs/blob/master/preview.png?raw=true)
+![trash-rs](https://github.com/Kove-W-O-Salter/trash-rs/blob/master/preview.gif?raw=true)
 
 ## BUILD
 If you've got `rust` installed with `rustup` then just:
