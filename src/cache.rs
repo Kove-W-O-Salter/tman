@@ -12,9 +12,14 @@ pub struct Cache {
 
 #[derive(Serialize, Deserialize)]
 pub struct Entry {
-    key: String,
-    origin: String,
+    key: Key,
     history: Vec<String>
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
+pub struct Key {
+    name: String,
+    origin: String
 }
 
 impl Cache {
@@ -32,34 +37,36 @@ impl Cache {
         })
     }
 
-    pub fn push(&mut self, key: String, origin: String, timestamp: String) {
+    pub fn push(&mut self, name: String, origin: String, version: String) {
         let mut done: bool = false;
+        let key: Key = Key::new(name, origin);
 
         for entry in self.entries.iter_mut() {
             if entry.key() == &key {
-                entry.push(timestamp.clone());
+                entry.push(version.clone());
                 done = true;
                 break;
             }
         }
 
         if !done {
-            self.entries.push(Entry::new(key, origin, vec![timestamp]))
+            self.entries.push(Entry::new(key, vec![version]))
         }
     }
 
     pub fn pop<KP, VP>(&mut self, key_predicate: KP, version_predicate: VP) -> Result<Vec<Entry>>
     where
-        KP: Fn(&String) -> bool,
+        KP: Fn(&Key) -> bool,
         VP: Fn(&String) -> bool
     {
         let mut popped: Vec<Entry> = vec![];
         let mut indices: Vec<usize> = vec![];
+        let mut shift_factor: usize = 0;
         let mut occurred: bool = false;
 
         for (index, entry) in self.entries.iter_mut().enumerate() {
             if key_predicate(entry.key()) {
-                popped.push(Entry::new(entry.key().clone(), entry.origin().clone(), entry.pop(&version_predicate)));
+                popped.push(Entry::new(entry.key().clone(), entry.pop(&version_predicate)));
                 
                 if entry.history().len() == 0 {
                     indices.push(index);
@@ -70,7 +77,8 @@ impl Cache {
         }
 
         for index in indices.iter() {
-            self.entries.remove(*index);
+            self.entries.remove(*index - shift_factor);
+            shift_factor += 1;
         }
 
         if occurred {
@@ -95,16 +103,15 @@ impl Cache {
 }
 
 impl Entry {
-    pub fn new(key: String, origin: String, history: Vec<String>) -> Entry {
+    pub fn new(key: Key, history: Vec<String>) -> Entry {
         Entry {
             key,
-            origin,
             history
         }
     }
 
-    pub fn push(&mut self, timestamp: String) {
-        self.history.push(timestamp);
+    pub fn push(&mut self, version: String) {
+        self.history.push(version);
     }
 
     pub fn pop<P>(&mut self, predicate: P) -> Vec<String>
@@ -115,8 +122,8 @@ impl Entry {
         let mut popped: Vec<String> = vec![];
         let mut shift_factor: usize = 0;
 
-        for (index, timestamp) in self.history.iter().enumerate() {
-            if predicate(&timestamp) {
+        for (index, version) in self.history.iter().enumerate() {
+            if predicate(&version) {
                 indices.push(index);
             }
         }
@@ -129,15 +136,28 @@ impl Entry {
         popped
     }
 
-    pub fn key(&self) -> &String {
+    pub fn key(&self) -> &Key {
         &self.key
-    }
-
-    pub fn origin(&self) -> &String {
-        &self.origin
     }
 
     pub fn history(&self) -> &Vec<String> {
         &self.history
+    }
+}
+
+impl Key {
+    pub fn new(name: String, origin: String) -> Key {
+        Key {
+            name,
+            origin
+        }
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn origin(&self) -> &String {
+        &self.origin
     }
 }
