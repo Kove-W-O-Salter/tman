@@ -227,7 +227,7 @@ ACTIONS:
                 } else {
                     println!("  * {} <- {}", entry.key().name(), entry.key().origin());
                     
-                    for version in entry.history().iter() {
+                    for version in entry.history().iter().rev() {
                         println!("    * {}", version)
                     }
 
