@@ -3,7 +3,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     InvalidArguments,
     InvalidJSON(usize, usize),
-    InvalidRegex,
+    InvalidRegex(regex::Error),
     MissingTarget(String),
     MissingTargetPredicate,
     Unknown,
@@ -12,12 +12,20 @@ pub enum Error {
 impl Error {
     fn print(&self) -> String {
         format!("trash: error: {}!", match self {
-            Error::InvalidArguments => format!("invalid arguments"),
+            Error::InvalidArguments => String::from("invalid arguments"),
             Error::InvalidJSON(line, column) => format!("syntax error on line {}, column {}, of settings.json or cache.json", line, column),
-            Error::InvalidRegex => format!("invalid regex"),
+            Error::InvalidRegex(regex_error) => {
+                String::from(
+                    match regex_error {
+                    regex::Error::Syntax(_) => "syntax error in regular expression",
+                    regex::Error::CompiledTooBig(_) => "oversized regular expression",
+                    _ => "invalid regular expression"
+                    }
+                )
+            },
             Error::MissingTarget(target) => format!("could not locate '{}'", target),
-            Error::MissingTargetPredicate => format!("could not locate any entries satisfying the predicate"),
-            Error::Unknown => format!("unknown")
+            Error::MissingTargetPredicate => String::from("could not locate any target satisfying given conditions"),
+            Error::Unknown => String::from("unknown")
         })
     }
 }
@@ -39,8 +47,8 @@ impl From<serde_json::Error> for Error {
 }
 
 impl From<regex::Error> for Error {
-    fn from(_: regex::Error) -> Self {
-        Error::InvalidRegex
+    fn from(regex_error: regex::Error) -> Self {
+        Error::InvalidRegex(regex_error)
     }
 }
 
