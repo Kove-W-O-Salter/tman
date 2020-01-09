@@ -2,7 +2,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 pub enum Error {
     InvalidArguments,
-    InvalidCache,
+    InvalidJSON,
     InvalidRegex,
     MissingTarget(String),
     MissingTargetPredicate,
@@ -13,7 +13,7 @@ impl Error {
     fn print(&self) -> String {
         format!("trash: error: {}!", match self {
             Error::InvalidArguments => format!("invalid arguments"),
-            Error::InvalidCache => format!("invalid cache"),
+            Error::InvalidJSON => format!("invalid json"),
             Error::InvalidRegex => format!("invalid regex"),
             Error::MissingTarget(target) => format!("could not locate '{}'", target),
             Error::MissingTargetPredicate => format!("could not locate any entries satisfying the predicate"),
@@ -30,7 +30,7 @@ impl From<std::io::Error> for Error {
 
 impl From<serde_json::Error> for Error {
     fn from(_: serde_json::Error) -> Self {
-        Error::InvalidCache
+        Error::InvalidJSON
     }
 }
 

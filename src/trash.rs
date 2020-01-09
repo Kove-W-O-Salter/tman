@@ -15,14 +15,18 @@ use clap::{
 };
 use chrono::Utc;
 use regex::Regex;
+use console::{Term, Style, StyledObject};
 use super::cache::Cache;
 use super::error::{
     Result,
     Error,
 };
+use super::settings::{Settings};
 
 pub struct Trash {
     cache: Cache,
+    stdout: Term,
+    settings: Settings,
     data_path: PathBuf
 }
 
@@ -33,9 +37,11 @@ impl Trash {
         directory.push(".trash");
 
         let mut cache_path: PathBuf = directory.clone();
+        let mut settings_path: PathBuf = directory.clone();
         let mut data_path: PathBuf = directory.clone();
 
         cache_path.push("cache.json");
+        settings_path.push("settings.json");
         data_path.push("data");
 
         create_dir(&directory).unwrap_or_default();
@@ -43,6 +49,8 @@ impl Trash {
 
         Ok(Trash {
             cache: Cache::new(&cache_path)?,
+            stdout: Term::stdout(),
+            settings: Settings::new(&settings_path)?,
             data_path: data_path
         })
     }
@@ -211,24 +219,26 @@ ACTIONS:
     pub fn list(&self, pattern: Regex, simple: bool) -> Result<()> {
         let mut empty: bool = true;
         let show_all: bool = pattern.as_str().is_empty();
+        let name_style = Style::new().bold();
+        let origin_style = Style::new().dim().italic();
+        let version_style = Style::new();
 
         if !simple {
             if show_all {
-                println!("Showing results in trash.");
+                self.stdout.write_line("Showing results in trash.")?;
             } else {
-                println!("Showing results for '{}' in trash.", pattern.as_str());
+                self.stdout.write_line(format!("Showing results for '{}' in trash.", pattern.as_str()).as_str())?;
             }
         }
 
         for entry in self.cache.entries().iter() {
             if pattern.is_match(entry.key().name()) {
                 if simple {
-                    println!("{}", entry.key().name());
+                    self.stdout.write_line(format!("{}", entry.key().name()).as_str())?;
                 } else {
-                    println!("  * {} <- {}", entry.key().name(), entry.key().origin());
-                    
+                    self.stdout.write_line(format!("  {} {} {} {}", self.unicode("\u{2022}", "*"), self.color(entry.key().name(), &name_style), self.unicode("\u{2190}", "<-"), self.color(entry.key().origin(), &origin_style)).as_str())?;
                     for version in entry.history().iter().rev() {
-                        println!("    * {}", version)
+                        self.stdout.write_line(format!("    {} {}", self.unicode("\u{2192}", "->"), self.color(version, &version_style)).as_str())?;
                     }
 
                     empty = false;
@@ -238,9 +248,9 @@ ACTIONS:
 
         if !simple {
             if empty && show_all {
-                println!("Your trash is empty!");
+                self.stdout.write_line("Your trash is empty!")?;
             } else if empty {
-                println!("No results for '{}'.", pattern.as_str());
+                self.stdout.write_line(format!("No results for '{}'.", pattern.as_str()).as_str())?;
             }
         }
 
@@ -265,5 +275,21 @@ ACTIONS:
         }
 
         Ok(())
+    }
+
+    pub fn unicode<'a>(&self, unicode: &'a str, ascii: &'a str) -> &'a str {
+        if self.settings.use_unicode() {
+            unicode
+        } else {
+            ascii
+        }
+    }
+
+    pub fn color<'a>(&self, text: &'a str, color: &Style) -> StyledObject<&'a str> {
+        if self.settings.use_colors() {
+            color.apply_to(text)
+        } else {
+            Style::new().apply_to(text)
+        }
     }
 }
