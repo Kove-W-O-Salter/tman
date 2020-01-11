@@ -3,6 +3,8 @@ use std::fs::{ OpenOptions, File };
 use std::path::{ PathBuf };
 use serde::{ Serialize, Deserialize };
 use serde_json::{ from_reader, to_writer };
+use chrono::{ Utc };
+use uuid::{ Uuid };
 use super::error::{ Result, Error };
 
 pub struct Cache {
@@ -13,6 +15,7 @@ pub struct Cache {
 #[derive(Serialize, Deserialize)]
 pub struct Entry {
     key: Key,
+    uuid: Uuid,
     history: Vec<String>
 }
 
@@ -37,38 +40,50 @@ impl Cache {
         })
     }
 
-    pub fn push(&mut self, name: String, origin: String, version: String) {
+    pub fn push(&mut self, name: String, origin: String) -> (Uuid, String) {
         let mut done: bool = false;
-        let key: Key = Key::new(name, origin);
-
+        let key: Key = Key::new(name, origin.clone());
+        let mut uuid: Option<Uuid> = None;
+        let version: String = format!("{}", Utc::now());
+        
         for entry in self.entries.iter_mut() {
             if entry.key() == &key {
                 entry.push(version.clone());
+                uuid = Some(entry.uuid().clone());
                 done = true;
                 break;
             }
         }
-
+        
         if !done {
-            self.entries.push(Entry::new(key, vec![version]))
+            uuid = Some(Uuid::new_v4());
+            self.entries.push(Entry::new(key, uuid.clone().unwrap(), vec![version.clone()]));
         }
+
+        (uuid.unwrap(), version)
     }
 
-    pub fn pop<KP, VP>(&mut self, key_predicate: KP, version_predicate: VP) -> Result<Vec<Entry>>
+    pub fn pop<KP, VP>(&mut self, key_predicate: KP, version_predicate: VP) -> Result<Vec<(bool, Entry)>>
     where
         KP: Fn(&Key) -> bool,
         VP: Fn(&String) -> bool
     {
-        let mut popped: Vec<Entry> = vec![];
+        let mut popped: Vec<(bool, Entry)> = vec![];
         let mut indices: Vec<usize> = vec![];
         let mut shift_factor: usize = 0;
         let mut occurred: bool = false;
+        #[allow(unused_assignments)]
+        let mut empty: bool = false;
+        let mut victim_entry: Entry;
 
         for (index, entry) in self.entries.iter_mut().enumerate() {
             if key_predicate(entry.key()) {
-                popped.push(Entry::new(entry.key().clone(), entry.pop(&version_predicate)));
+                victim_entry = Entry::new(entry.key().clone(), entry.uuid().clone(), entry.pop(&version_predicate));
+                empty = entry.history().len() == 0;
+
+                popped.push((empty, victim_entry));
                 
-                if entry.history().len() == 0 {
+                if empty {
                     indices.push(index);
                 }
 
@@ -103,9 +118,10 @@ impl Cache {
 }
 
 impl Entry {
-    pub fn new(key: Key, history: Vec<String>) -> Entry {
+    pub fn new(key: Key, uuid: Uuid, history: Vec<String>) -> Entry {
         Entry {
             key,
+            uuid,
             history
         }
     }
@@ -138,6 +154,10 @@ impl Entry {
 
     pub fn key(&self) -> &Key {
         &self.key
+    }
+
+    pub fn uuid(&self) -> &Uuid {
+        &self.uuid
     }
 
     pub fn history(&self) -> &Vec<String> {

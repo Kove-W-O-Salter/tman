@@ -1,27 +1,13 @@
-use std::fs::{
-    rename,
-    create_dir,
-    canonicalize,
-    remove_file,
-    remove_dir_all,
-};
-use std::path::PathBuf;
-use dirs::home_dir;
-use clap::{
-    App,
-    AppSettings,
-    ArgMatches,
-    Arg
-};
-use chrono::Utc;
-use regex::Regex;
-use console::{Term, Style, StyledObject};
-use super::cache::Cache;
-use super::error::{
-    Result,
-    Error,
-};
-use super::settings::{Settings};
+use std::fs::{ rename, create_dir, canonicalize, remove_dir_all };
+use std::path::{ PathBuf };
+use dirs::{ home_dir };
+use clap::{ App, AppSettings, ArgMatches, Arg };
+use regex::{ Regex };
+use console::{ Term, Style, StyledObject };
+use uuid::{ Uuid };
+use super::cache::{ Cache };
+use super::error::{ Result, Error };
+use super::settings::{ Settings };
 
 pub struct Trash {
     cache: Cache,
@@ -155,23 +141,21 @@ ACTIONS:
     }
 
     pub fn delete(&mut self, target: String) -> Result<()> {
-        if PathBuf::from(&target).exists() {
-            let location: PathBuf = canonicalize(PathBuf::from(&target))?;
-            let key: String = String::from(location.file_name().unwrap().to_str().unwrap());
+        let origin: PathBuf = canonicalize(&target)?;
+        let name: String = origin.file_name().unwrap().to_str().unwrap().to_string();
+        let mut destination: PathBuf = self.data_path.clone();
 
-            let mut destination: PathBuf = self.data_path.clone();
-            let timestamp = format!("{:?}", Utc::now());
-            
-            destination.push(timestamp.clone());
-            
-            self.cache.push(key, String::from(location.to_str().unwrap()), timestamp);
+        let (uuid, version): (Uuid, String) = self.cache.push(name, origin.to_str().unwrap().to_string());
 
-            rename(location, destination)?;
+        destination.push(uuid.to_string());
 
-            Ok(())
-        } else {
-            Err(Error::MissingTarget(target))
-        }
+        create_dir(&destination).unwrap_or_default();
+
+        destination.push(&version);
+
+        rename(origin, destination)?;
+
+        Ok(())
     }
 
     pub fn restore(&mut self, target_name: &str, target_origin: Option<&str>, target_version: Option<&str>) -> Result<()> {
@@ -194,7 +178,7 @@ ACTIONS:
             }
         )?;
 
-        for entry in entries {
+        for (empty, entry) in entries {
             for version in entry.history() {
                 location = self.data_path.clone();
                 destination = if entry.history().len() > 1 {
@@ -203,12 +187,18 @@ ACTIONS:
                     PathBuf::from(entry.key().origin())
                 };
 
+                location.push(entry.uuid().to_string());
                 location.push(version);
 
                 if location.exists() {
                     rename(location.clone(), destination)?;
                 } else {
                     Err(Error::MissingTarget(version.clone()))?;
+                }
+
+                if empty {
+                    location.pop();
+                    remove_dir_all(&location)?;
                 }
             }
         }
@@ -258,20 +248,13 @@ ACTIONS:
     }
 
     pub fn empty(&mut self) -> Result<()> {
-        let mut location;
+        let mut location: PathBuf;
 
-        for entry in self.cache.pop(|_| { true }, |_| { true })? {
-            for version in entry.history().iter() {
-                location = PathBuf::new();
-                location.push(&self.data_path);
-                location.push(version);
+        for (_, entry) in self.cache.pop(|_| { true }, |_| { true })? {
+            location = PathBuf::from(&self.data_path);
+            location.push(entry.uuid().to_string());
 
-                if location.is_dir() {
-                    remove_dir_all(location)?;
-                } else {
-                    remove_file(location)?;
-                }
-            }
+            remove_dir_all(&location)?;
         }
 
         Ok(())
