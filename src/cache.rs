@@ -25,6 +25,12 @@ pub struct Key {
     origin: String
 }
 
+pub enum VersionPredicate<'a> {
+    Any,
+    Newest,
+    Specific(&'a str)
+}
+
 impl Cache {
     pub fn new(path: &PathBuf) -> Result<Cache> {
         let file: File = OpenOptions::new()
@@ -63,10 +69,9 @@ impl Cache {
         (uuid.unwrap(), version)
     }
 
-    pub fn pop<KP, VP>(&mut self, key_predicate: KP, version_predicate: VP) -> Result<Vec<(bool, Entry)>>
+    pub fn pop<KP>(&mut self, key_predicate: KP, version_predicate: VersionPredicate) -> Result<Vec<(bool, Entry)>>
     where
-        KP: Fn(&Key) -> bool,
-        VP: Fn(&String) -> bool
+        KP: Fn(&Key) -> bool
     {
         let mut popped: Vec<(bool, Entry)> = vec![];
         let mut indices: Vec<usize> = vec![];
@@ -130,23 +135,29 @@ impl Entry {
         self.history.push(version);
     }
 
-    pub fn pop<P>(&mut self, predicate: P) -> Vec<String>
-    where
-        P: Fn(&String) -> bool
-    {
+    pub fn pop(&mut self, predicate: &VersionPredicate) -> Vec<String> {
         let mut indices: Vec<usize> = vec![];
         let mut popped: Vec<String> = vec![];
         let mut shift_factor: usize = 0;
 
-        for (index, version) in self.history.iter().enumerate() {
-            if predicate(&version) {
-                indices.push(index);
-            }
-        }
+        match predicate {
+            VersionPredicate::Any => {
+                popped = self.history.clone();
+                self.history.truncate(0);
+            },
+            VersionPredicate::Newest => popped.push(self.history.pop().unwrap()),
+            VersionPredicate::Specific(target_version) => {
+                for (index, version) in self.history.iter().enumerate() {
+                    if &version == target_version {
+                        indices.push(index);
+                    }
+                }
 
-        for index in indices.iter() {
-            popped.push(self.history.remove(index - shift_factor));
-            shift_factor += 1;
+                for index in indices.iter() {
+                    popped.push(self.history.remove(index - shift_factor));
+                    shift_factor += 1;
+                }
+            }
         }
 
         popped

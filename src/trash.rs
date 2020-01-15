@@ -5,7 +5,7 @@ use clap::{ App, AppSettings, ArgMatches, Arg };
 use regex::{ Regex };
 use console::{ Term, Style, StyledObject };
 use uuid::{ Uuid };
-use super::cache::{ Cache };
+use super::cache::{ Cache, VersionPredicate };
 use super::error::{ Result, Error };
 use super::settings::{ Settings };
 
@@ -169,12 +169,11 @@ ACTIONS:
                     key.name() == &target_name
                 }
             },
-            |version| {
-                if let Some(target_version) = target_version {
-                    version == &target_version
-                } else {
-                    true
-                }
+            match target_version {
+                Some("all") => VersionPredicate::Any,
+                Some("newest") => VersionPredicate::Newest,
+                Some(target_version) => VersionPredicate::Specific(&target_version),
+                None => VersionPredicate::Newest
             }
         )?;
 
@@ -250,7 +249,7 @@ ACTIONS:
     pub fn empty(&mut self) -> Result<()> {
         let mut location: PathBuf;
 
-        for (_, entry) in self.cache.pop(|_| { true }, |_| { true })? {
+        for (_, entry) in self.cache.pop(|_| { true }, VersionPredicate::Any)? {
             location = PathBuf::from(&self.data_path);
             location.push(entry.uuid().to_string());
 
