@@ -1,19 +1,17 @@
-# TRASH-RS
+# TRASH
 Safely delete and restore files.
 
-![trash-rs](https://github.com/Kove-W-O-Salter/trash-rs/blob/master/preview.gif?raw=true)
+![trash-rs](https://github.com/Kove-W-O-Salter/trash/blob/master/preview.gif?raw=true)
 
 ## BUILD
 If you've got `rust` installed with `rustup` then just:
 ```bash
-git clone https://github.com/kove-w-o-salter/trash-rs
-cd ./trash-rs
+git clone https://github.com/kove-w-o-salter/trash
+cd ./trash
 cargo build --release
 cp ./target/release/trash ~/.local/bin/trash
 ```
 and you're good to go.
-## BINARY
-If you're on an 64 bit Ubuntu based distro you should be able to download a precompiled binary [here](https://drive.google.com/open?id=1LNJnqY3O6GdpY2ROCUg_t3BP4SK8X06I). However, this binary will not always be up to date.
 
 ## USAGE
 * Move several files or directories to the trash.
