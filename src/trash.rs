@@ -55,14 +55,17 @@ r#"USAGE:
     trash <ACTION>
 
 ACTIONS:
-    --delete         -D    <FILE_1>...    Trash specified files
-    --restore        -R    <FILE>         Restore specified file
-        --origin     -o    <PATH>         Set the origin
-        --version    -v    <VERSION>      Set the revision
-    --list           -L                   List items in the trash
-        --pattern    -p    <REGEX>        Set the search pattern
-        --simple     -p                   Set the simple mode
-    --empty          -E                   Permenantly delete trash content"#
+    --delete             -D    <FILE_1>...    Trash specified files
+    --restore            -R    <FILE>         Restore specified file
+        --origin         -o    <PATH>         Set the origin
+        --version        -v                   Set the revision
+            <VERSION>                         Use a specific version
+            newest                            Use the newest version (default)
+            all                               Use all versions
+    --list               -L                   List items in the trash
+        --pattern        -p    <REGEX>        Set the search pattern
+        --simple         -p                   Set the simple mode
+    --empty              -E                   Permenantly delete trash content"#
             )
             .arg(Arg::with_name("delete")
                 .long("delete")
