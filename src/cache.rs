@@ -26,7 +26,7 @@ pub struct Key {
 }
 
 pub enum VersionPredicate<'a> {
-    Any,
+    All,
     Newest,
     Specific(&'a str)
 }
@@ -141,7 +141,7 @@ impl Entry {
         let mut shift_factor: usize = 0;
 
         match predicate {
-            VersionPredicate::Any => {
+            VersionPredicate::All => {
                 popped = self.history.clone();
                 self.history.truncate(0);
             },

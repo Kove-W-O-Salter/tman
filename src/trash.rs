@@ -58,7 +58,7 @@ ACTIONS:
     --delete         -D    <FILE_1>...    Trash specified files
     --restore        -R    <FILE>         Restore specified file
         --origin     -o    <PATH>         Set the origin
-        --version    -v    <TIMESTAMP>    Set the revision
+        --version    -v    <VERSION>      Set the revision
     --list           -L                   List items in the trash
         --pattern    -p    <REGEX>        Set the search pattern
         --simple     -p                   Set the simple mode
@@ -159,8 +159,9 @@ ACTIONS:
     }
 
     pub fn restore(&mut self, target_name: &str, target_origin: Option<&str>, target_version: Option<&str>) -> Result<()> {
-        let mut location: PathBuf;
-        let mut destination: PathBuf;
+        let mut location: PathBuf = PathBuf::default();
+        #[allow(unused_assignments)]
+        let mut destination: PathBuf = PathBuf::default();
         let entries = self.cache.pop(
             |key| {
                 if let Some(target_origin) = target_origin {
@@ -170,7 +171,7 @@ ACTIONS:
                 }
             },
             match target_version {
-                Some("all") => VersionPredicate::Any,
+                Some("all") => VersionPredicate::All,
                 Some("newest") => VersionPredicate::Newest,
                 Some(target_version) => VersionPredicate::Specific(&target_version),
                 None => VersionPredicate::Newest
@@ -194,11 +195,11 @@ ACTIONS:
                 } else {
                     Err(Error::MissingTarget(version.clone()))?;
                 }
+            }
 
-                if empty {
-                    location.pop();
-                    remove_dir_all(&location)?;
-                }
+            if empty {
+                location.pop();
+                remove_dir_all(&location)?;
             }
         }
 
@@ -249,7 +250,7 @@ ACTIONS:
     pub fn empty(&mut self) -> Result<()> {
         let mut location: PathBuf;
 
-        for (_, entry) in self.cache.pop(|_| { true }, VersionPredicate::Any)? {
+        for (_, entry) in self.cache.pop(|_| { true }, VersionPredicate::All)? {
             location = PathBuf::from(&self.data_path);
             location.push(entry.uuid().to_string());
 
