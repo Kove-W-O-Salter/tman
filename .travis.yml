@@ -1,7 +1,6 @@
 os:
-  - os: linux
-    dist: bionic
-  - os: osx
+  - linux
+  - osx
 language: rust
 rust: stable
 cache: cargo
