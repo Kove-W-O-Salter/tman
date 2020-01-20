@@ -1,15 +1,36 @@
+///
+/// A custom result type with specialized errors.
+///
 pub type Result<T> = std::result::Result<T, Error>;
 
+///
+/// Custom errors that may occur.
+///
 pub enum Error {
+    /// Program was called with invalid arguments.
     InvalidArguments,
+    /// There was a JSON error in the settings or cache.
     InvalidJSON(usize, usize),
+    /// An invalid regular expression was passed as an argument.
     InvalidRegex(regex::Error),
+    /// Could not locate a target file or entry.
     MissingTarget(String),
+    /// Could not locate a target file or entry satisfying a predicate.
     MissingTargetPredicate,
+    /// A unknown error.
     Unknown,
 }
 
 impl Error {
+    ///
+    /// Display the error as a `String`.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// Error::InvalidArguments.pring();
+    /// ```
+    ///
     fn print(&self) -> String {
         format!("trash: error: {}!", match self {
             Error::InvalidArguments => String::from("invalid arguments"),
@@ -30,12 +51,18 @@ impl Error {
     }
 }
 
+///
+/// Conversions from IO errors to custom errors.
+///
 impl From<std::io::Error> for Error {
     fn from(_: std::io::Error) -> Self {
         Error::Unknown
     }
 }
 
+///
+/// Conversions from JSON errors to custom errors.
+///
 impl From<serde_json::Error> for Error {
     fn from(json_error: serde_json::Error) -> Self {
         if json_error.is_syntax() || json_error.is_data() {
@@ -46,12 +73,25 @@ impl From<serde_json::Error> for Error {
     }
 }
 
+///
+/// Conversions from regex errors to trash errors.
+///
 impl From<regex::Error> for Error {
     fn from(regex_error: regex::Error) -> Self {
         Error::InvalidRegex(regex_error)
     }
 }
 
+///
+/// Finish a `Result` computating, writing to stdout on error and doing nothing
+/// on success.
+/// 
+/// # Example
+/// 
+/// ```
+/// finish(Err(Error::InvalidArguments));
+/// ```
+///
 pub fn finish<T>(result: Result<T>) {
     match result {
         Ok(_) => (),

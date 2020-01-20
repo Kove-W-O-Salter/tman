@@ -1,3 +1,16 @@
+extern crate clap;
+extern crate dirs;
+extern crate regex;
+extern crate serde;
+extern crate serde_json;
+extern crate failure;
+extern crate chrono;
+extern crate console;
+
+pub mod cache;
+pub mod error;
+pub mod settings;
+
 use std::fs::{ rename, create_dir, canonicalize, remove_dir_all };
 use std::path::{ PathBuf };
 use dirs::{ home_dir };
@@ -5,18 +18,48 @@ use clap::{ App, AppSettings, ArgMatches, Arg };
 use regex::{ Regex };
 use console::{ Term, Style, StyledObject };
 use uuid::{ Uuid };
-use super::cache::{ Cache, VersionPredicate };
-use super::error::{ Result, Error };
-use super::settings::{ Settings };
 
+use cache::{ Cache, VersionPredicate };
+use error::{ Result, Error };
+use settings::{ Settings };
+
+///
+/// The application and all of it's resources.
+/// 
+/// # Example
+/// 
+/// ```
+/// let app: Trash = Trash::new()?;
+/// app.main()?;
+/// ```
+///
 pub struct Trash {
+    /// The cache.
     cache: Cache,
+    /// A console.
     stdout: Term,
+    /// Settings.
     settings: Settings,
+    /// Location of file store.
     data_path: PathBuf
 }
 
 impl Trash {
+    ///
+    /// Create a new application, loading it's settings and cache whilst
+    /// creating all missing directories.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// let app: Trash = Trash::new();
+    /// ```
+    /// 
+    /// # Errors
+    /// 
+    /// Fails on failed initialisation of cache and on failed initialisation
+    /// of settings.
+    ///
     pub fn new() -> Result<Trash> {
         let mut directory: PathBuf = home_dir().unwrap_or_default();
 
@@ -41,6 +84,15 @@ impl Trash {
         })
     }
 
+    ///
+    /// Run the application, parsing the command line arguments.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// app.main()?;
+    /// ```
+    /// 
     pub fn main(&mut self) -> Result<()> {
         let max_argument_values: u64 = std::u64::MAX;
 
@@ -60,7 +112,7 @@ ACTIONS:
         --origin         -o    <PATH>         Set the origin
         --version        -v                   Set the revision
             <VERSION>                         Use a specific version
-            newest                            Use the newest version (default)
+            latest                            Use the newest version (default)
             all                               Use all versions
     --list               -L                   List items in the trash
         --pattern        -p    <REGEX>        Set the search pattern
@@ -143,24 +195,38 @@ ACTIONS:
         Ok(())
     }
 
+    ///
+    /// Move a target file to the trash.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// app.delete(String::from("./Bilbo.txt"))?;
+    /// ```
+    /// 
     pub fn delete(&mut self, target: String) -> Result<()> {
         let origin: PathBuf = canonicalize(&target)?;
         let name: String = origin.file_name().unwrap().to_str().unwrap().to_string();
         let mut destination: PathBuf = self.data_path.clone();
-
         let (uuid, version): (Uuid, String) = self.cache.push(name, origin.to_str().unwrap().to_string());
 
         destination.push(uuid.to_string());
-
         create_dir(&destination).unwrap_or_default();
-
         destination.push(&version);
-
         rename(origin, destination)?;
 
         Ok(())
     }
 
+    ///
+    /// Restore a target files version to it's original location.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// app.restore(String::from("Bilbo.txt"), None, None);
+    /// ```
+    ///
     pub fn restore(&mut self, target_name: &str, target_origin: Option<&str>, target_version: Option<&str>) -> Result<()> {
         let mut location: PathBuf = PathBuf::default();
         #[allow(unused_assignments)]
@@ -175,15 +241,17 @@ ACTIONS:
             },
             match target_version {
                 Some("all") => VersionPredicate::All,
-                Some("newest") => VersionPredicate::Newest,
-                Some(target_version) => VersionPredicate::Specific(&target_version),
-                None => VersionPredicate::Newest
+                Some("latest") | None => VersionPredicate::Latest,
+                Some(target_version) => VersionPredicate::Specific(&target_version)
             }
         )?;
 
         for (empty, entry) in entries {
             for version in entry.history() {
                 location = self.data_path.clone();
+                // Ensure unique names by appending the verssion timestamp to
+                // the destination file name, when more than one versions are
+                // being restored.
                 destination = if entry.history().len() > 1 {
                     PathBuf::from(format!("{}_{}", entry.key().origin(), version))
                 } else {
@@ -200,6 +268,7 @@ ACTIONS:
                 }
             }
 
+            // Remove the directory if all entries are restored.
             if empty {
                 location.pop();
                 remove_dir_all(&location)?;
@@ -209,6 +278,15 @@ ACTIONS:
         Ok(())
     }
 
+    ///
+    /// List the contents of the trash.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// app.list(Regex::from_str("")?, false)?;
+    /// ```
+    ///
     pub fn list(&self, pattern: Regex, simple: bool) -> Result<()> {
         let mut empty: bool = true;
         let show_all: bool = pattern.as_str().is_empty();
@@ -250,6 +328,15 @@ ACTIONS:
         Ok(())
     }
 
+    ///
+    /// Delete everything in the trash.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// app.empty()?;
+    /// ```
+    ///
     pub fn empty(&mut self) -> Result<()> {
         let mut location: PathBuf;
 
@@ -263,6 +350,16 @@ ACTIONS:
         Ok(())
     }
 
+    ///
+    /// Insert a unicode character if `use_unicode` is enabled, else use a
+    /// default ASCII character.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// let output: &'static str = app.unicode("\u{2022}", "*");
+    /// ```
+    ///
     pub fn unicode<'a>(&self, unicode: &'a str, ascii: &'a str) -> &'a str {
         if self.settings.use_unicode() {
             unicode
@@ -271,6 +368,15 @@ ACTIONS:
         }
     }
 
+    ///
+    /// Format text with ANSI styles if the `use_colors` setting is enabled.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// let output: StyledObject<&'static str> = app.color("Bold Face", Style::new().bold());
+    /// ```
+    ///
     pub fn color<'a>(&self, text: &'a str, color: &Style) -> StyledObject<&'a str> {
         if self.settings.use_colors() {
             color.apply_to(text)
