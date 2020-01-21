@@ -1,6 +1,10 @@
 os:
-  - linux
-  - osx
+- linux
+- osx
 language: rust
 rust: stable
 cache: cargo
+deploy:
+  provider: cargo
+  token:
+    secure: OHwZvpjp9LD1UTGFQCN+cq5SiCJFxPSu/wRv0QwpiK2d8bZY34RZmBdb50VCWUJcke8mOOiQ1HjHZvvvz5XD9Yh+TElAyzAJKmh/JHMP1bWojy7myBj1oaTXqyrmSFgYAXJDh8mqoi1YJoweXbhJVIG3aEEyk4seQUMVrFx7sExWRCDn4lUJCBIzsH2H1hOhX6XWkKKkyfZKjqhhvLei39YzgE0syxwlUh6X75G2OO/P2kGWrt/8QB9+I6Eosxcxjk1+Ie9sXJDGlS2sJsC2+IDpoQZsrfOihIVcw/oendY9Xe3oTRUN4v1LNg8C88YWwmQC6x93B8PiQQXH5zICH2lbbyKj2pK8TQUdAemR+zx/338wfhqpwB+NrEjDNEgo07IXSTMgOTjqDUftY0UuU/xgWAbIcZ46aCleNvSIlCV1K0tg/iBwA+Fxod2XtbuLgI/dMwq6Y/z3KUcFOCGwdDQkqJn0ArTOyU1256ZNDIAtXc5AQx4DwnJ/eASdqPg1fgMumrN+BU68YgJhOCugwmp/+S5lmLfRGipRV0hL53P9XJ9tvLa7pMVZbHsAqmfAoxmwD0HF6ElIO9W+dg6JkR4GoQyTS+1a4AH+Gz+wRd3stKJsssTOvMGRk8/1QPkWAt61ZgU9+dZh4x4Gwjhv0L7it0AMOBzMUvRazfR8nis=
