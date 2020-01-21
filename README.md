@@ -1,8 +1,6 @@
 # TRASH [![Build Status](https://travis-ci.com/Kove-W-O-Salter/trash.svg?branch=master)](https://travis-ci.com/Kove-W-O-Salter/trash)
 Safely delete and restore files and directories.
 
-![trash-rs](https://github.com/Kove-W-O-Salter/trash/blob/master/preview.gif?raw=true)
-
 ## BUILD
 If you've got `rust` installed with `rustup` then just:
 ```bash
