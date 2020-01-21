@@ -1,24 +1,24 @@
-# TRASH [![Build Status](https://travis-ci.com/Kove-W-O-Salter/trash.svg?branch=master)](https://travis-ci.com/Kove-W-O-Salter/trash)
+# TMAN [![Build Status](https://travis-ci.com/Kove-W-O-Salter/tman.svg?branch=master)](https://travis-ci.com/Kove-W-O-Salter/tman)
 Safely delete and restore files and directories.
 
 ## BUILD
 If you've got `rust` installed with `rustup` then just:
 ```bash
-git clone https://github.com/kove-w-o-salter/trash
-cd ./trash
+git clone https://github.com/kove-w-o-salter/tman
+cd ./tman
 cargo build --release
-cp ./target/release/trash ~/.local/bin/trash
+cp ./target/release/tman ~/.local/bin/tman
 ```
 and you're good to go.
 
 ## USAGE
 ```
-$ trash --help
+$ tman --help
 USAGE:
-    trash <ACTION>
+    tman <ACTION>
 
 ACTIONS:
-    --delete             -D    <FILE_1>...    Trash specified files
+    --delete             -D    <FILE_1>...    Delete specified files
     --restore            -R    <FILE>         Restore specified file
         --origin         -o    <PATH>         Set the origin
         --version        -v                   Set the revision
@@ -34,15 +34,15 @@ ACTIONS:
 ## EXAMPLES
 * Move `test.txt`, `test1.txt`, `test2.txt` and `test3.txt` to the trash run:
   ```bash
-  trash -D test{,1,2,3}.txt
+  tman -D test{,1,2,3}.txt
   ```
 * Restore `test.txt`, `test1.txt`, `test2.txt` and `test3.txt` to the trash run:
   ```bash
-  trash -R test{,1,2,3}.txt
+  tman -R test{,1,2,3}.txt
   ```
 
 ## SETTINGS
-Settings are stored in `~/.trash/settings.json`. The current available settings are:
+Settings are stored in `~/.tman/settings.json`. The current available settings are:
 * `use_unicode`: set to `true` if you want to see unicode characters in your output, otherwise set to `false`. **Defaults to `false`**.
 * `use_colors`: set to `true` if you want to see ANSI formatting in your output, otherwise set to `false`. **Defaults to `false`**.
 

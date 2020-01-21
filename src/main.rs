@@ -1,11 +1,11 @@
 mod lib;
 
-use lib::{ Trash };
+use lib::{ TMan };
 use lib::error::{ finish };
 
 fn main() {
-    match Trash::new() {
-        Ok(mut trash) => finish(trash.main()),
+    match TMan::new() {
+        Ok(mut tman) => finish(tman.main()),
         error => finish(error),
     }
 }

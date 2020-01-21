@@ -133,7 +133,7 @@ impl Cache {
     /// ```
     /// let name: String = "Bilbo.txt".to_string();
     /// let origin: String = "/home/Bilbo/Bilbo.txt".to_string();
-    /// let (uuid, version): (Uuid, String) = trash.push(name, origin);
+    /// let (uuid, version): (Uuid, String) = cache.push(name, origin);
     /// ```
     ///
     pub fn push(&mut self, name: String, origin: String) -> (Uuid, String) {

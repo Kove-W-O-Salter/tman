@@ -29,11 +29,11 @@ use settings::{ Settings };
 /// # Example
 /// 
 /// ```
-/// let app: Trash = Trash::new()?;
+/// let app: TMan = TMan::new()?;
 /// app.main()?;
 /// ```
 ///
-pub struct Trash {
+pub struct TMan {
     /// The cache.
     cache: Cache,
     /// A console.
@@ -44,7 +44,7 @@ pub struct Trash {
     data_path: PathBuf
 }
 
-impl Trash {
+impl TMan {
     ///
     /// Create a new application, loading it's settings and cache whilst
     /// creating all missing directories.
@@ -52,7 +52,7 @@ impl Trash {
     /// # Example
     /// 
     /// ```
-    /// let app: Trash = Trash::new();
+    /// let app: TMan = TMan::new();
     /// ```
     /// 
     /// # Errors
@@ -60,10 +60,10 @@ impl Trash {
     /// Fails on failed initialisation of cache and on failed initialisation
     /// of settings.
     ///
-    pub fn new() -> Result<Trash> {
+    pub fn new() -> Result<TMan> {
         let mut directory: PathBuf = home_dir().unwrap_or_default();
 
-        directory.push(".trash");
+        directory.push(".tman");
 
         let mut cache_path: PathBuf = directory.clone();
         let mut settings_path: PathBuf = directory.clone();
@@ -76,7 +76,7 @@ impl Trash {
         create_dir(&directory).unwrap_or_default();
         create_dir(&data_path).unwrap_or_default();
 
-        Ok(Trash {
+        Ok(TMan {
             cache: Cache::new(&cache_path)?,
             stdout: Term::stdout(),
             settings: Settings::new(&settings_path)?,
@@ -96,18 +96,18 @@ impl Trash {
     pub fn main(&mut self) -> Result<()> {
         let max_argument_values: u64 = std::u64::MAX;
 
-        let matches: ArgMatches<'static> = App::new("Trash")
-            .name("trash")
-            .version("1.0")
+        let matches: ArgMatches<'static> = App::new("TMan")
+            .name("tman")
+            .version("1.0.0")
             .author("Kove Salter <kove.w.o.salter@gmail.com>")
             .about("Safely manage your trash")
             .setting(AppSettings::ArgRequiredElseHelp)
             .help(
 r#"USAGE:
-    trash <ACTION>
+    tman <ACTION>
 
 ACTIONS:
-    --delete             -D    <FILE_1>...    Trash specified files
+    --delete             -D    <FILE_1>...    Delete specified files
     --restore            -R    <FILE>         Restore specified file
         --origin         -o    <PATH>         Set the origin
         --version        -v                   Set the revision
