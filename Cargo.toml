@@ -3,6 +3,12 @@ name = "trash"
 version = "1.0.0"
 authors = ["Kove-W-O-Salter <kove.w.o.salter@gmail.com>"]
 edition = "2018"
+description = "Safely delete and restore files and directories"
+license = "MIT"
+homepage = "https://github.com/Kove-W-O-Salter/trash"
+
+[badges]
+travis-ci = { repository = "Kove-W-O-Salter/trash", branch = "master" }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
