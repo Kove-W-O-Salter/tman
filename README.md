@@ -1,15 +1,21 @@
 # TMAN [![Build Status](https://travis-ci.com/Kove-W-O-Salter/tman.svg?branch=master)](https://travis-ci.com/Kove-W-O-Salter/tman)
-Safely delete and restore files and directories.
 
 ## BUILD
-If you've got `rust` installed with `rustup` then just:
+### Prerequisites.
+* `rust`.
+* `cargo`.
+### Like a good boy.
+```
+cargo install tman
+```
+And your good to go.
+### Like a masochist.
 ```bash
 git clone https://github.com/kove-w-o-salter/tman
 cd ./tman
 cargo build --release
 cp ./target/release/tman ~/.local/bin/tman
 ```
-and you're good to go.
 
 ## USAGE
 ```
@@ -32,11 +38,9 @@ ACTIONS:
 ```
 
 ## EXAMPLES
-* Move `test.txt`, `test1.txt`, `test2.txt` and `test3.txt` to the trash run:
   ```bash
   tman -D test{,1,2,3}.txt
   ```
-* Restore `test.txt`, `test1.txt`, `test2.txt` and `test3.txt` to the trash run:
   ```bash
   tman -R test{,1,2,3}.txt
   ```
@@ -48,9 +52,7 @@ Settings are stored in `~/.tman/settings.json`. The current available settings a
 
 ## CONTRIBUTING
 ### I would love to hear what you think.
-Any feedback or contributions will be examined and potentially accepted A.S.A.P. So feel free to open **issues** or **PR**s.
 ### I am not an experienced develper.
-I'm simply a high-school student with an enjoyment of coding and computer science. As such, I cannot guarentee the code quality of this repo.
 
 ## TODO
 - [X] File/directory restoration.
