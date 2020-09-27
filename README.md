@@ -51,8 +51,7 @@ Settings are stored in `~/.tman/settings.json`. The current available settings a
 * `use_colors`: set to `true` if you want to see ANSI formatting in your output, otherwise set to `false`. **Defaults to `false`**.
 
 ## CONTRIBUTING
-### I would love to hear what you think.
-### I am not an experienced develper.
+**PRs welcome!**
 
 ## TODO
 - [X] File/directory restoration.
